@@ -1,7 +1,10 @@
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from pydantic import BaseModel
 
 
+class AuthorCreate(BaseModel):
+    name: str
 
 class Base(DeclarativeBase):
     pass
