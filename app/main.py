@@ -1,6 +1,6 @@
 from fastapi import Depends, FastAPI, HTTPException
 from app.database import get_db
-from app.models import Author, Book, AuthorCreate
+from app.models import Author, Book, AuthorCreate, BookCreate
 
 app = FastAPI(title="Bookstore API")
 
@@ -59,3 +59,75 @@ def delete_author(author_id: int, db=Depends(get_db)):
     db.commit()
 
     return {"message": "Author deleted successfully"}
+
+
+@app.post("/books")
+def create_book(book: BookCreate, db=Depends(get_db)):
+    author = db.get(Author, book.author_id)
+
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+
+    new_book = Book(
+        title=book.title,
+        author_id=book.author_id
+    )
+
+    db.add(new_book)
+    db.commit()
+    db.refresh(new_book)
+
+    return new_book
+
+
+@app.get("/books")
+def get_books(db=Depends(get_db)):
+    books = db.query(Book).all()
+    return books
+
+
+@app.get("/books/{book_id}")
+def get_book(book_id: int, db=Depends(get_db)):
+    book = db.get(Book, book_id)
+
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    return book
+
+@app.put("/books/{book_id}")
+def update_book(
+    book_id: int,
+    book: BookCreate,
+    db=Depends(get_db)
+):
+    existing_book = db.get(Book, book_id)
+
+    if not existing_book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    author = db.get(Author, book.author_id)
+
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+
+    existing_book.title = book.title
+    existing_book.author_id = book.author_id
+
+    db.commit()
+    db.refresh(existing_book)
+
+    return existing_book
+
+
+@app.delete("/books/{book_id}")
+def delete_book(book_id: int, db=Depends(get_db)):
+    book = db.get(Book, book_id)
+
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    db.delete(book)
+    db.commit()
+
+    return {"message": "Book deleted successfully"}
