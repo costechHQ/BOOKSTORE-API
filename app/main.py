@@ -1,8 +1,14 @@
 from fastapi import Depends, FastAPI, HTTPException
 from app.database import get_db
-from app.models import Author, Book, AuthorCreate, BookCreate
+from app.models import Author, Book, AuthorCreate, BookCreate, User, UserCreate
+from passlib.context import CryptContext
 
 app = FastAPI(title="Bookstore API")
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
 
 
 @app.post("/authors")
@@ -131,3 +137,26 @@ def delete_book(book_id: int, db=Depends(get_db)):
     db.commit()
 
     return {"message": "Book deleted successfully"}
+
+
+@app.post("/register")
+def register_user(user: UserCreate, db=Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == user.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+   
+    hash_password = pwd_context.hash(user.password) 
+    
+    new_user = User(
+        username=user.username,
+        password=hash_password
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {
+        "id": new_user.id,
+        "username": new_user.username
+    }
