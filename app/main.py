@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from app.database import get_db
 from app.models import Author, Book, AuthorCreate, BookCreate, User, UserCreate
 from passlib.context import CryptContext
@@ -9,6 +9,44 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+
+
+
+@app.post("/login")
+def login_user(
+    user: UserCreate,
+    response: Response,
+    db=Depends(get_db)
+):
+    existing_user = db.query(User).filter(
+        User.username == user.username
+    ).first()
+
+    if not existing_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    password_correct = pwd_context.verify(
+        user.password,
+        existing_user.password
+    )
+
+    if not password_correct:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+
+    response.set_cookie(
+        key="session",
+        value=str(existing_user.id)
+    )
+
+    return {
+        "message": "Login successful"
+    }
 
 
 @app.post("/authors")
