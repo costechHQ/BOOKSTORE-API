@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from app.database import get_db
 from app.models import Author, Book, AuthorCreate, BookCreate, User, UserCreate
 from passlib.context import CryptContext
@@ -9,6 +9,18 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+
+
+def require_session(
+    session: str | None = Cookie(default=None)
+):
+    if not session:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required"
+        )
+
+    return session
 
 
 
@@ -49,8 +61,20 @@ def login_user(
     }
 
 
+@app.post("/logout")
+def logout_user(response: Response):
+    response.delete_cookie(key="session")
+
+    return {
+        "message": "Logout successful"
+    }
+
 @app.post("/authors")
-def create_author(author: AuthorCreate, db=Depends(get_db)):
+def create_author(
+    author: AuthorCreate,
+    db=Depends(get_db),
+    session=Depends(require_session)
+):
     new_author = Author(name=author.name)
 
     db.add(new_author)
@@ -77,7 +101,8 @@ def get_author(author_id: int, db=Depends(get_db)):
 def update_author(
     author_id: int,
     author: AuthorCreate,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    session=Depends(require_session)
 ):
     existing_author = db.get(Author, author_id)
 
@@ -93,7 +118,11 @@ def update_author(
 
 
 @app.delete("/authors/{author_id}")
-def delete_author(author_id: int, db=Depends(get_db)):
+def delete_author(
+    author_id: int,
+    db=Depends(get_db),
+    session=Depends(require_session)
+):
     author = db.get(Author, author_id)
 
     if not author:
